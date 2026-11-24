@@ -1,0 +1,532 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kidapawan City Forum</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f5f9;color:#253447;font-family:Arial,sans-serif}
+header{background:#164d78;color:white;padding:25px max(5%,calc((100% - 1100px)/2))}
+header h1{margin:0;font-size:27px}
+header p{color:#d6e8f7;margin:7px 0 0}
+nav{background:white;padding:15px max(5%,calc((100% - 1100px)/2));border-bottom:1px solid #ddd}
+nav a{color:#164d78;text-decoration:none;font-weight:bold;margin-right:20px}
+.container{max-width:1100px;margin:25px auto;padding:0 15px}
+.layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(230px,1fr);gap:20px}
+.panel{background:white;border:1px solid #e0e5eb;border-radius:10px;padding:19px;margin-bottom:18px}
+.welcome{background:#e3f0fb;color:#164d78}
+h2{font-size:19px;margin-top:0}
+input,textarea,select{width:100%;padding:12px;margin:6px 0 12px;border:1px solid #ccd5df;border-radius:6px;font:inherit}
+textarea{min-height:95px;resize:vertical}
+button{background:#1769aa;color:white;border:0;padding:10px 15px;border-radius:6px;cursor:pointer}
+button:hover{background:#105286}
+button:disabled{opacity:.5;cursor:not-allowed}
+.secondary{background:#e8eef4;color:#34495e}
+.danger{background:#a93636}
+.hidden{display:none!important}
+.post{border-bottom:1px solid #e5e9ee;padding:18px 0}
+.post:last-child{border:0}
+.post h3{margin:8px 0;color:#1769aa}
+.meta{font-size:12px;color:#718096}
+.tag{font-size:11px;color:#1769aa;background:#eaf3fa;padding:4px 8px;border-radius:20px}
+.postbody{white-space:pre-wrap;overflow-wrap:anywhere}
+.actions{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+.actions button{font-size:12px;padding:7px 11px}
+.comment{background:#f5f7fa;padding:10px;margin:8px 0;border-radius:6px}
+.comment p{margin:7px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.category{padding:10px 0;border-bottom:1px solid #eee;cursor:pointer}
+.category:hover{color:#1769aa}
+.small{font-size:13px;color:#718096;line-height:1.6}
+.status{font-size:12px;color:#a93636}
+footer{text-align:center;padding:25px;color:#718096;font-size:13px}
+#message{margin:10px 0;color:#1769aa;font-size:13px}
+@media(max-width:700px){.layout{grid-template-columns:1fr}header{padding:22px}nav{padding:15px}}
+</style>
+</head>
+<body>
+
+<header>
+<h1>Kidapawan City Forum</h1>
+<p>Your local community discussion platform</p>
+</header>
+
+<nav>
+<a href="#" id="homeLink">Home</a>
+<a href="#discussions">Discussions</a>
+<a href="#create">Create Post</a>
+</nav>
+
+<div class="container">
+
+<section class="panel welcome">
+<h2>Welcome to Kidapawan City Forum!</h2>
+<p>Share ideas, ask questions, discuss local events and connect with the community.</p>
+</section>
+
+<div class="layout">
+<main>
+
+<section class="panel" id="account">
+<h2>Member Account</h2>
+<div id="loggedOut">
+<input id="username" placeholder="Username (for registration)">
+<input id="email" type="email" placeholder="Email address">
+<input id="password" type="password" placeholder="Password (at least 8 characters)">
+<div class="actions">
+<button id="signup">Register</button>
+<button id="login" class="secondary">Login</button>
+</div>
+<p class="small">Registration may require email confirmation. Use an email address you can access.</p>
+</div>
+
+<div id="loggedIn" class="hidden">
+<p>Signed in as <strong id="currentUser"></strong></p>
+<p id="roleLabel" class="small"></p>
+<button id="logout" class="secondary">Logout</button>
+</div>
+<div id="message"></div>
+</section>
+
+<section class="panel hidden" id="create">
+<h2>Create a Discussion</h2>
+<form id="postForm">
+<input id="postTitle" maxlength="90" placeholder="Discussion title" required>
+<select id="postCategory">
+<option>General Discussion</option>
+<option>Local News</option>
+<option>Events</option>
+<option>Community</option>
+<option>Schools</option>
+<option>Help & Questions</option>
+<option>Buy, Sell & Trade</option>
+</select>
+<textarea id="postBody" maxlength="3000" placeholder="Write your discussion..." required></textarea>
+<button type="submit">Publish Discussion</button>
+</form>
+</section>
+
+<section class="panel hidden" id="admin">
+<h2>Administrator Dashboard</h2>
+<p class="small">Moderate posts and comments using the controls shown below.</p>
+<p id="adminMessage" class="small"></p>
+</section>
+
+<section class="panel" id="discussions">
+<h2>Community Discussions</h2>
+<input id="search" placeholder="Search discussions...">
+<select id="filter">
+<option value="All">All categories</option>
+<option>General Discussion</option>
+<option>Local News</option>
+<option>Events</option>
+<option>Community</option>
+<option>Schools</option>
+<option>Help & Questions</option>
+<option>Buy, Sell & Trade</option>
+</select>
+<div id="posts">Loading discussions...</div>
+</section>
+
+</main>
+
+<aside>
+<section class="panel">
+<h2>Categories</h2>
+<div class="category" data-category="All">All discussions</div>
+<div class="category" data-category="General Discussion">General Discussion</div>
+<div class="category" data-category="Local News">Local News</div>
+<div class="category" data-category="Events">Events</div>
+<div class="category" data-category="Community">Community</div>
+<div class="category" data-category="Schools">Schools</div>
+<div class="category" data-category="Help & Questions">Help & Questions</div>
+<div class="category" data-category="Buy, Sell & Trade">Buy, Sell & Trade</div>
+</section>
+
+<section class="panel">
+<h2>Community Guidelines</h2>
+<p class="small">Be respectful to other members.</p>
+<p class="small">Do not share private information.</p>
+<p class="small">No spam, scams or harassment.</p>
+<p class="small">Check information before sharing.</p>
+<p class="small">Keep discussions appropriate.</p>
+</section>
+
+<section class="panel">
+<h2>About</h2>
+<p class="small">An online community for discussions and information about Kidapawan City.</p>
+</section>
+</aside>
+</div>
+</div>
+
+<footer>Kidapawan City Forum © 2026</footer>
+
+<script>
+const SUPABASE_URL = "https://jdnvwugeogadccofqpxj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_-ITo4tIubvpqYBTsvdP0dQ_uA3W5Ivy";
+
+const db = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
+
+let currentSession = null;
+let currentProfile = null;
+let allPosts = [];
+
+const $ = id => document.getElementById(id);
+
+function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",
+        '"':"&quot;","'":"&#39;"
+    })[c]);
+}
+
+function message(text) {
+    $("message").textContent = text;
+}
+
+function formatDate(date) {
+    return new Date(date).toLocaleString();
+}
+
+async function updateAccount() {
+    const {data} = await db.auth.getSession();
+    currentSession = data.session;
+
+    $("loggedOut").classList.toggle("hidden", !!currentSession);
+    $("loggedIn").classList.toggle("hidden", !currentSession);
+    $("create").classList.toggle("hidden", !currentSession);
+
+    currentProfile = null;
+
+    if (currentSession) {
+        const {data: profile, error} = await db
+            .from("profiles")
+            .select("username,role")
+            .eq("id", currentSession.user.id)
+            .single();
+
+        if (!error && profile) {
+            currentProfile = profile;
+            $("currentUser").textContent = profile.username;
+            $("roleLabel").textContent =
+                profile.role === "admin"
+                ? "Administrator account"
+                : "Community member";
+
+            $("admin").classList.toggle(
+                "hidden", profile.role !== "admin"
+            );
+        }
+    } else {
+        $("admin").classList.add("hidden");
+    }
+}
+
+$("signup").onclick = async () => {
+    const username = $("username").value.trim();
+    const email = $("email").value.trim();
+    const password = $("password").value;
+
+    if (username.length < 3) {
+        message("Username must have at least 3 characters.");
+        return;
+    }
+
+    if (password.length < 8) {
+        message("Password must have at least 8 characters.");
+        return;
+    }
+
+    const {error} = await db.auth.signUp({
+        email,
+        password,
+        options: {
+            data: {username}
+        }
+    });
+
+    message(error ? error.message :
+        "Registration submitted. Check your email if confirmation is enabled.");
+};
+
+$("login").onclick = async () => {
+    const {error} = await db.auth.signInWithPassword({
+        email: $("email").value.trim(),
+        password: $("password").value
+    });
+
+    message(error ? error.message : "Login successful.");
+    await updateAccount();
+    await loadPosts();
+};
+
+$("logout").onclick = async () => {
+    await db.auth.signOut();
+    message("You have logged out.");
+    await updateAccount();
+    await loadPosts();
+};
+
+db.auth.onAuthStateChange(() => {
+    setTimeout(async () => {
+        await updateAccount();
+        await loadPosts();
+    }, 0);
+});
+
+$("postForm").onsubmit = async event => {
+    event.preventDefault();
+
+    if (!currentSession) {
+        message("Please log in first.");
+        return;
+    }
+
+    const title = $("postTitle").value.trim();
+    const body = $("postBody").value.trim();
+
+    if (!title || !body) return;
+
+    const {error} = await db.from("posts").insert({
+        user_id: currentSession.user.id,
+        title,
+        body,
+        category: $("postCategory").value
+    });
+
+    if (error) {
+        message(error.message);
+        return;
+    }
+
+    event.target.reset();
+    message("Your discussion has been published.");
+    await loadPosts();
+};
+
+async function loadPosts() {
+    const {data, error} = await db
+        .from("posts")
+        .select("*")
+        .order("created_at", {ascending:false});
+
+    if (error) {
+        $("posts").textContent = error.message;
+        return;
+    }
+
+    const posts = data || [];
+    const userIds = [...new Set(posts.map(p => p.user_id))];
+    const postIds = posts.map(p => p.id);
+
+    let profiles = [];
+    let likes = [];
+    let comments = [];
+
+    if (userIds.length) {
+        const result = await db.from("profiles")
+            .select("id,username")
+            .in("id", userIds);
+        profiles = result.data || [];
+    }
+
+    if (postIds.length) {
+        const [likeResult, commentResult] = await Promise.all([
+            db.from("likes").select("*").in("post_id", postIds),
+            db.from("comments").select("*")
+                .in("post_id", postIds)
+                .order("created_at")
+        ]);
+        likes = likeResult.data || [];
+        comments = commentResult.data || [];
+    }
+
+    const commentUsers = [...new Set(comments.map(c => c.user_id))];
+    let commentProfiles = [];
+
+    if (commentUsers.length) {
+        const result = await db.from("profiles")
+            .select("id,username")
+            .in("id", commentUsers);
+        commentProfiles = result.data || [];
+    }
+
+    const profileName = id =>
+        profiles.find(p => p.id === id)?.username || "Member";
+
+    const commentName = id =>
+        commentProfiles.find(p => p.id === id)?.username || "Member";
+
+    const search = $("search").value.toLowerCase();
+    const category = $("filter").value;
+
+    const visiblePosts = posts.filter(p =>
+        (category === "All" || p.category === category) &&
+        (p.title + " " + p.body + " " + profileName(p.user_id))
+            .toLowerCase().includes(search)
+    );
+
+    $("posts").innerHTML = visiblePosts.length
+        ? visiblePosts.map(p => {
+            const postLikes = likes.filter(l => l.post_id === p.id);
+            const liked = postLikes.some(l =>
+                l.user_id === currentSession?.user.id
+            );
+            const postComments = comments.filter(c => c.post_id === p.id);
+
+            return `
+            <article class="post">
+                <span class="tag">${escapeHTML(p.category)}</span>
+                ${p.status === "hidden"
+                    ? '<span class="status">Hidden</span>' : ""}
+                <h3>${escapeHTML(p.title)}</h3>
+                <div class="meta">
+                    By ${escapeHTML(profileName(p.user_id))}
+                    · ${formatDate(p.created_at)}
+                </div>
+                <p class="postbody">${escapeHTML(p.body)}</p>
+
+                <div class="actions">
+                    <button class="secondary likeBtn"
+                        data-id="${p.id}" ${!currentSession ? "disabled" : ""}>
+                        ${liked ? "♥ Liked" : "♡ Like"}
+                        (${postLikes.length})
+                    </button>
+                    ${currentProfile?.role === "admin" ? `
+                    <button class="danger moderatePost"
+                        data-id="${p.id}"
+                        data-status="${p.status === "published" ? "hidden" : "published"}">
+                        ${p.status === "published" ? "Hide post" : "Publish post"}
+                    </button>` : ""}
+                </div>
+
+                <h4>Comments (${postComments.length})</h4>
+
+                ${postComments.map(c => `
+                    <div class="comment">
+                        <strong>${escapeHTML(commentName(c.user_id))}</strong>
+                        ${c.status === "hidden"
+                            ? '<span class="status">Hidden</span>' : ""}
+                        <p>${escapeHTML(c.body)}</p>
+                        <div class="meta">${formatDate(c.created_at)}</div>
+                        ${currentProfile?.role === "admin" ? `
+                        <button class="danger moderateComment"
+                            data-id="${c.id}"
+                            data-status="${c.status === "published" ? "hidden" : "published"}">
+                            ${c.status === "published" ? "Hide comment" : "Restore comment"}
+                        </button>` : ""}
+                    </div>
+                `).join("")}
+
+                ${currentSession && p.status === "published" ? `
+                <form class="commentForm" data-id="${p.id}">
+                    <input name="body" maxlength="1000"
+                        placeholder="Write a comment..." required>
+                    <button type="submit">Comment</button>
+                </form>` : ""}
+            </article>`;
+        }).join("")
+        : "<p>No discussions found.</p>";
+}
+
+$("posts").addEventListener("click", async event => {
+    const likeButton = event.target.closest(".likeBtn");
+
+    if (likeButton) {
+        if (!currentSession) return;
+
+        const postId = Number(likeButton.dataset.id);
+        const existing = await db.from("likes")
+            .select("post_id")
+            .eq("post_id", postId)
+            .eq("user_id", currentSession.user.id)
+            .maybeSingle();
+
+        if (existing.data) {
+            await db.from("likes").delete()
+                .eq("post_id", postId)
+                .eq("user_id", currentSession.user.id);
+        } else {
+            await db.from("likes").insert({
+                post_id: postId,
+                user_id: currentSession.user.id
+            });
+        }
+
+        await loadPosts();
+    }
+
+    const postButton = event.target.closest(".moderatePost");
+
+    if (postButton) {
+        const {error} = await db.rpc("moderate_post", {
+            target_id: Number(postButton.dataset.id),
+            new_status: postButton.dataset.status
+        });
+
+        if (error) alert(error.message);
+        else await loadPosts();
+    }
+
+    const commentButton = event.target.closest(".moderateComment");
+
+    if (commentButton) {
+        const {error} = await db.rpc("moderate_comment", {
+            target_id: Number(commentButton.dataset.id),
+            new_status: commentButton.dataset.status
+        });
+
+        if (error) alert(error.message);
+        else await loadPosts();
+    }
+});
+
+$("posts").addEventListener("submit", async event => {
+    if (!event.target.matches(".commentForm")) return;
+    event.preventDefault();
+
+    const body = new FormData(event.target).get("body").trim();
+
+    if (!body || !currentSession) return;
+
+    const {error} = await db.from("comments").insert({
+        post_id: Number(event.target.dataset.id),
+        user_id: currentSession.user.id,
+        body
+    });
+
+    if (error) alert(error.message);
+    else await loadPosts();
+});
+
+$("search").addEventListener("input", loadPosts);
+$("filter").addEventListener("change", loadPosts);
+
+document.querySelectorAll(".category").forEach(item => {
+    item.onclick = () => {
+        $("filter").value = item.dataset.category;
+        loadPosts();
+    };
+});
+
+$("homeLink").onclick = () => {
+    $("filter").value = "All";
+    $("search").value = "";
+    loadPosts();
+};
+
+async function start() {
+    await updateAccount();
+    await loadPosts();
+}
+
+start();
+</script>
+</body>
+</html>
